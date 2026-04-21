@@ -13,10 +13,13 @@ class CBarPassElement : public IPassElement {
     CBarPassElement(const SBarData& data_);
     virtual ~CBarPassElement() = default;
 
-    virtual void                draw(const CRegion& damage);
+    virtual std::vector<UP<IPassElement>> draw();
     virtual bool                needsLiveBlur();
     virtual bool                needsPrecomputeBlur();
     virtual std::optional<CBox> boundingBox();
+    virtual ePassElementType    type() {
+        return EK_CUSTOM;
+    }
 
     virtual const char*         passName() {
         return "CBarPassElement";

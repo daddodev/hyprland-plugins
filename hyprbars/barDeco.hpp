@@ -58,8 +58,8 @@ class CHyprBar : public IHyprWindowDecoration {
 
     CBox                      m_bAssignedBox;
 
-    SP<CTexture>              m_pTextTex;
-    SP<CTexture>              m_pButtonsTex;
+    SP<Render::ITexture>      m_pTextTex;
+    SP<Render::ITexture>      m_pButtonsTex;
 
     bool                      m_bWindowSizeChanged = false;
     bool                      m_hidden             = false;
@@ -78,7 +78,8 @@ class CHyprBar : public IHyprWindowDecoration {
 
     void                      renderPass(PHLMONITOR, float const& a);
     void                      renderBarTitle(const Vector2D& bufferSize, const float scale);
-    void                      renderText(SP<CTexture> out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize);
+    void                      renderText(SP<Render::ITexture> out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale,
+                                         const int fontSize);
     void                      renderBarButtons(const Vector2D& bufferSize, const float scale);
     void                      renderBarButtonsText(CBox* barBox, const float scale, const float a);
     void                      damageOnButtonHover();

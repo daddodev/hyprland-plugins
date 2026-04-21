@@ -8,6 +8,8 @@ using namespace Hyprutils::Memory;
 #include "BorderppPassElement.hpp"
 #include "globals.hpp"
 
+using Render::GL::g_pHyprOpenGL;
+
 CBordersPlusPlus::CBordersPlusPlus(PHLWINDOW pWindow) : IHyprWindowDecoration(pWindow), m_pWindow(pWindow) {
     m_lastWindowPos  = pWindow->m_realPosition->value();
     m_lastWindowSize = pWindow->m_realSize->value();

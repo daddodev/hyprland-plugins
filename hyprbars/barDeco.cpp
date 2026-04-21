@@ -8,6 +8,7 @@
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/config/ConfigManager.hpp>
+#include <hyprland/src/config/shared/animation/AnimationTree.hpp>
 #include <hyprland/src/managers/animation/AnimationManager.hpp>
 #include <hyprland/src/protocols/LayerShell.hpp>
 #include <hyprland/src/event/EventBus.hpp>
@@ -16,6 +17,8 @@
 
 #include "globals.hpp"
 #include "BarPassElement.hpp"
+
+using Render::GL::g_pHyprOpenGL;
 
 CHyprBar::CHyprBar(PHLWINDOW pWindow) : IHyprWindowDecoration(pWindow) {
     m_pWindow = pWindow;
@@ -34,10 +37,10 @@ CHyprBar::CHyprBar(PHLWINDOW pWindow) : IHyprWindowDecoration(pWindow) {
     m_pTouchMoveCallback = Event::bus()->m_events.input.touch.motion.listen([&](ITouch::SMotionEvent e, Event::SCallbackInfo& info) { onTouchMove(info, e); });
     m_pMouseMoveCallback = Event::bus()->m_events.input.mouse.move.listen([&](Vector2D c, Event::SCallbackInfo& info) { onMouseMove(c); });
 
-    m_pTextTex    = makeShared<CTexture>();
-    m_pButtonsTex = makeShared<CTexture>();
+    m_pTextTex    = g_pHyprRenderer->createTexture();
+    m_pButtonsTex = g_pHyprRenderer->createTexture();
 
-    g_pAnimationManager->createAnimation(CHyprColor{**PCOLOR}, m_cRealBarColor, g_pConfigManager->getAnimationPropertyConfig("border"), pWindow, AVARDAMAGE_NONE);
+    g_pAnimationManager->createAnimation(CHyprColor{**PCOLOR}, m_cRealBarColor, Config::animationTree()->getAnimationPropertyConfig("border"), pWindow, AVARDAMAGE_NONE);
     m_cRealBarColor->setUpdateCallback([&](auto) { damageEntire(); });
 }
 
@@ -279,7 +282,7 @@ bool CHyprBar::doButtonPress(Hyprlang::INT* const* PBARPADDING, Hyprlang::INT* c
     return false;
 }
 
-void CHyprBar::renderText(SP<CTexture> out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize) {
+void CHyprBar::renderText(SP<Render::ITexture> out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize) {
     const auto CAIROSURFACE = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, bufferSize.x, bufferSize.y);
     const auto CAIRO        = cairo_create(CAIROSURFACE);
 
@@ -323,7 +326,7 @@ void CHyprBar::renderText(SP<CTexture> out, const std::string& text, const CHypr
 
     // copy the data to an OpenGL texture we have
     const auto DATA = cairo_image_surface_get_data(CAIROSURFACE);
-    out->allocate();
+    out->allocate(bufferSize);
     glBindTexture(GL_TEXTURE_2D, out->m_texID);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -412,7 +415,7 @@ void CHyprBar::renderBarTitle(const Vector2D& bufferSize, const float scale) {
 
     // copy the data to an OpenGL texture we have
     const auto DATA = cairo_image_surface_get_data(CAIROSURFACE);
-    m_pTextTex->allocate();
+    m_pTextTex->allocate(bufferSize);
     glBindTexture(GL_TEXTURE_2D, m_pTextTex->m_texID);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -466,7 +469,7 @@ void CHyprBar::renderBarButtons(const Vector2D& bufferSize, const float scale) {
     // draw buttons
     int offset = **PBARPADDING * scale;
     for (size_t i = 0; i < visibleCount; ++i) {
-        const auto& button           = g_pGlobalState->buttons[i];
+        auto&      button            = g_pGlobalState->buttons[i];
         const auto  scaledButtonSize = button.size * scale;
         const auto  scaledButtonsPad = **PBARBUTTONPADDING * scale;
 
@@ -475,8 +478,8 @@ void CHyprBar::renderBarButtons(const Vector2D& bufferSize, const float scale) {
 
         if (**PINACTIVECOLOR > 0) {
             color = m_bWindowHasFocus ? color : CHyprColor(**PINACTIVECOLOR);
-            if (button.userfg && button.iconTex->m_texID != 0)
-                button.iconTex->destroyTexture();
+            if (button.userfg && button.iconTex && button.iconTex->m_texID != 0)
+                button.iconTex = g_pHyprRenderer->createTexture();
         }
 
         cairo_set_source_rgba(CAIRO, color.r, color.g, color.b, color.a);
@@ -488,7 +491,7 @@ void CHyprBar::renderBarButtons(const Vector2D& bufferSize, const float scale) {
 
     // copy the data to an OpenGL texture we have
     const auto DATA = cairo_image_surface_get_data(CAIROSURFACE);
-    m_pButtonsTex->allocate();
+    m_pButtonsTex->allocate(bufferSize);
     glBindTexture(GL_TEXTURE_2D, m_pButtonsTex->m_texID);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -530,7 +533,10 @@ void CHyprBar::renderBarButtonsText(CBox* barBox, const float scale, const float
         bool       hovering   = VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + button.size + **PBARBUTTONPADDING, currentPos.y + button.size);
         noScaleOffset += **PBARBUTTONPADDING + button.size;
 
-        if (button.iconTex->m_texID == 0 /* icon is not rendered */ && !button.icon.empty()) {
+        if ((!button.iconTex || button.iconTex->m_texID == 0) /* icon is not rendered */ && !button.icon.empty()) {
+            if (!button.iconTex)
+                button.iconTex = g_pHyprRenderer->createTexture();
+
             // render icon
             const Vector2D BUFSIZE = {scaledButtonSize, scaledButtonSize};
             auto           fgcol   = button.userfg ? button.fgcol : (button.bgcol.r + button.bgcol.g + button.bgcol.b < 1) ? CHyprColor(0xFFFFFFFF) : CHyprColor(0xFF000000);
@@ -538,7 +544,7 @@ void CHyprBar::renderBarButtonsText(CBox* barBox, const float scale, const float
             renderText(button.iconTex, button.icon, fgcol, BUFSIZE, scale, button.size * 0.62);
         }
 
-        if (button.iconTex->m_texID == 0)
+        if (!button.iconTex || button.iconTex->m_texID == 0)
             continue;
 
         CBox pos = {barBox->x + (BUTTONSRIGHT ? barBox->width - offset - scaledButtonSize : offset), barBox->y + (barBox->height - scaledButtonSize) / 2.0, scaledButtonSize,

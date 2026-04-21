@@ -13,9 +13,12 @@ class CBorderPPPassElement : public IPassElement {
     CBorderPPPassElement(const SBorderPPData& data_);
     virtual ~CBorderPPPassElement() = default;
 
-    virtual void        draw(const CRegion& damage);
+    virtual std::vector<UP<IPassElement>> draw();
     virtual bool        needsLiveBlur();
     virtual bool        needsPrecomputeBlur();
+    virtual ePassElementType type() {
+        return EK_CUSTOM;
+    }
 
     virtual const char* passName() {
         return "CBorderPPPassElement";

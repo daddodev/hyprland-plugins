@@ -12,6 +12,9 @@
 
 #include <algorithm>
 
+#include <hyprutils/string/ConstVarList.hpp>
+using namespace Hyprutils::String;
+
 #include "barDeco.hpp"
 #include "globals.hpp"
 
@@ -48,7 +51,7 @@ static void onUpdateWindowRules(PHLWINDOW window) {
 
 Hyprlang::CParseResult onNewButton(const char* K, const char* V) {
     std::string            v = V;
-    CVarList               vars(v);
+    CConstVarList          vars(v);
 
     Hyprlang::CParseResult result;
 
@@ -61,7 +64,7 @@ Hyprlang::CParseResult onNewButton(const char* K, const char* V) {
 
     float size = 10;
     try {
-        size = std::stof(vars[1]);
+        size = std::stof(std::string{vars[1]});
     } catch (std::exception& e) {
         result.setError("failed to parse size");
         return result;
@@ -69,7 +72,7 @@ Hyprlang::CParseResult onNewButton(const char* K, const char* V) {
 
     bool userfg  = false;
     auto fgcolor = configStringToInt("rgb(ffffff)");
-    auto bgcolor = configStringToInt(vars[0]);
+    auto bgcolor = configStringToInt(std::string{vars[0]});
 
     if (!bgcolor) {
         result.setError("invalid bgcolor");
@@ -78,7 +81,7 @@ Hyprlang::CParseResult onNewButton(const char* K, const char* V) {
 
     if (vars.size() == 5) {
         userfg  = true;
-        fgcolor = configStringToInt(vars[4]);
+        fgcolor = configStringToInt(std::string{vars[4]});
     }
 
     if (!fgcolor) {
@@ -86,7 +89,7 @@ Hyprlang::CParseResult onNewButton(const char* K, const char* V) {
         return result;
     }
 
-    g_pGlobalState->buttons.push_back(SHyprButton{vars[3], userfg, *fgcolor, *bgcolor, size, vars[2]});
+    g_pGlobalState->buttons.push_back(SHyprButton{std::string{vars[3]}, userfg, *fgcolor, *bgcolor, size, std::string{vars[2]}});
 
     for (auto& b : g_pGlobalState->bars) {
         b->m_bButtonsDirty = true;

@@ -1,13 +1,17 @@
 #include "BarPassElement.hpp"
 #include <hyprland/src/render/OpenGL.hpp>
+#include <hyprland/src/render/Renderer.hpp>
 #include "barDeco.hpp"
+
+using Render::GL::g_pHyprOpenGL;
 
 CBarPassElement::CBarPassElement(const CBarPassElement::SBarData& data_) : data(data_) {
     ;
 }
 
-void CBarPassElement::draw(const CRegion& damage) {
-    data.deco->renderPass(g_pHyprOpenGL->m_renderData.pMonitor.lock(), data.a);
+std::vector<UP<IPassElement>> CBarPassElement::draw() {
+    data.deco->renderPass(g_pHyprRenderer->m_renderData.pMonitor.lock(), data.a);
+    return {};
 }
 
 bool CBarPassElement::needsLiveBlur() {
@@ -24,7 +28,7 @@ bool CBarPassElement::needsLiveBlur() {
 
 std::optional<CBox> CBarPassElement::boundingBox() {
     // Temporary fix: expand the bar bb a bit, otherwise occlusion gets too aggressive.
-    return data.deco->assignedBoxGlobal().translate(-g_pHyprOpenGL->m_renderData.pMonitor->m_position).expand(10);
+    return data.deco->assignedBoxGlobal().translate(-g_pHyprRenderer->m_renderData.pMonitor->m_position).expand(10);
 }
 
 bool CBarPassElement::needsPrecomputeBlur() {

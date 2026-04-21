@@ -6,13 +6,13 @@
 inline HANDLE PHANDLE = nullptr;
 
 struct SHyprButton {
-    std::string  cmd     = "";
-    bool         userfg  = false;
-    CHyprColor   fgcol   = CHyprColor(0, 0, 0, 0);
-    CHyprColor   bgcol   = CHyprColor(0, 0, 0, 0);
-    float        size    = 10;
-    std::string  icon    = "";
-    SP<CTexture> iconTex = makeShared<CTexture>();
+    std::string         cmd     = "";
+    bool                userfg  = false;
+    CHyprColor          fgcol   = CHyprColor(0, 0, 0, 0);
+    CHyprColor          bgcol   = CHyprColor(0, 0, 0, 0);
+    float               size    = 10;
+    std::string         icon    = "";
+    SP<Render::ITexture> iconTex;
 };
 
 class CHyprBar;
