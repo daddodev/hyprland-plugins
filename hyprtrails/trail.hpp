@@ -33,6 +33,9 @@ class CTrail : public IHyprWindowDecoration {
     CTrail(PHLWINDOW);
     virtual ~CTrail();
 
+    WP<CTrail>                    m_self;
+    void                          onTick();
+
     virtual SDecorationPositioningInfo getPositioningInfo();
 
     virtual void                       onPositioningReply(const SDecorationPositioningReply& reply);
@@ -46,8 +49,6 @@ class CTrail : public IHyprWindowDecoration {
     virtual void                       damageEntire();
 
   private:
-    SP<HOOK_CALLBACK_FN>                                              pTickCb;
-    void                                                              onTick();
     void                                                              renderPass(PHLMONITOR pMonitor, const float& a);
 
     std::deque<std::pair<box, std::chrono::system_clock::time_point>> m_dLastGeoms;

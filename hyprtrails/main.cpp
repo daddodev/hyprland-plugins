@@ -2,17 +2,19 @@
 
 #include <unistd.h>
 
+#include <algorithm>
 #include <any>
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/desktop/DesktopTypes.hpp>
 #include <hyprland/src/config/ConfigManager.hpp>
 #include <hyprland/src/render/shaders/Shaders.hpp>
 #include <hyprland/src/render/Renderer.hpp>
-#include <hyprland/src/managers/HookSystemManager.hpp>
-
+#include <hyprland/src/event/EventBus.hpp>
 #include "globals.hpp"
 #include "shaders.hpp"
 #include "trail.hpp"
+
+using Render::GL::g_pHyprOpenGL;
 
 // Do NOT change this function.
 APICALL EXPORT std::string PLUGIN_API_VERSION() {
@@ -23,7 +25,10 @@ void onNewWindow(void* self, std::any data) {
     // data is guaranteed
     const auto PWINDOW = std::any_cast<PHLWINDOW>(data);
 
-    HyprlandAPI::addWindowDecoration(PHANDLE, PWINDOW, makeUnique<CTrail>(PWINDOW));
+    auto       trail   = makeUnique<CTrail>(PWINDOW);
+    g_pGlobalState->trails.emplace_back(trail);
+    trail->m_self = trail;
+    HyprlandAPI::addWindowDecoration(PHANDLE, PWINDOW, std::move(trail));
 }
 
 GLuint CompileShader(const GLuint& type, std::string src) {
@@ -74,7 +79,13 @@ GLuint CreateProgram(const std::string& vert, const std::string& frag) {
 }
 
 int onTick(void* data) {
-    EMIT_HOOK_EVENT("trailTick", nullptr);
+    std::erase_if(g_pGlobalState->trails, [](const auto& trail) {
+        if (!trail)
+            return true;
+
+        trail->onTick();
+        return false;
+    });
 
     const int TIMEOUT = g_pHyprRenderer->m_mostHzMonitor ? 1000.0 / g_pHyprRenderer->m_mostHzMonitor->m_refreshRate : 16;
     wl_event_source_timer_update(g_pGlobalState->tick, TIMEOUT);
@@ -83,15 +94,10 @@ int onTick(void* data) {
 }
 
 void initGlobal() {
-    g_pHyprRenderer->makeEGLCurrent();
+    g_pHyprOpenGL->makeEGLCurrent();
 
-    GLuint prog                                                     = CreateProgram(QUADTRAIL, FRAGTRAIL);
-    g_pGlobalState->trailShader.program                             = prog;
-    g_pGlobalState->trailShader.uniformLocations[SHADER_PROJ]       = glGetUniformLocation(prog, "proj");
-    g_pGlobalState->trailShader.uniformLocations[SHADER_TEX]        = glGetUniformLocation(prog, "tex");
-    g_pGlobalState->trailShader.uniformLocations[SHADER_COLOR]      = glGetUniformLocation(prog, "color");
-    g_pGlobalState->trailShader.uniformLocations[SHADER_POS_ATTRIB] = glGetAttribLocation(prog, "pos");
-    g_pGlobalState->trailShader.uniformLocations[SHADER_GRADIENT]   = glGetUniformLocation(prog, "snapshots");
+    if (!g_pGlobalState->trailShader.createProgram(QUADTRAIL, FRAGTRAIL))
+        throw std::runtime_error("createProgram() failed!");
 
     g_pGlobalState->tick = wl_event_loop_add_timer(g_pCompositor->m_wlEventLoop, &onTick, nullptr);
     wl_event_source_timer_update(g_pGlobalState->tick, 1);
@@ -115,7 +121,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprtrails:history_step", Hyprlang::INT{2});
     HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprtrails:color", Hyprlang::INT{*configStringToInt("rgba(ffaa00ff)")});
 
-    static auto P = HyprlandAPI::registerCallbackDynamic(PHANDLE, "openWindow", [&](void* self, SCallbackInfo& info, std::any data) { onNewWindow(self, data); });
+    static auto P = Event::bus()->m_events.window.open.listen([](PHLWINDOW w) { onNewWindow(nullptr, w); });
 
     g_pGlobalState = makeUnique<SGlobalState>();
     initGlobal();
@@ -125,7 +131,10 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         if (w->isHidden() || !w->m_isMapped)
             continue;
 
-        HyprlandAPI::addWindowDecoration(PHANDLE, w, makeUnique<CTrail>(w));
+        auto trail   = makeUnique<CTrail>(w);
+        g_pGlobalState->trails.emplace_back(trail);
+        trail->m_self = trail;
+        HyprlandAPI::addWindowDecoration(PHANDLE, w, std::move(trail));
     }
 
     HyprlandAPI::reloadConfig();

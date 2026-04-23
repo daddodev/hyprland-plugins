@@ -8,6 +8,8 @@
 #include <hyprland/src/config/ConfigManager.hpp>
 #include <hyprland/src/desktop/DesktopTypes.hpp>
 #include <hyprland/src/render/Renderer.hpp>
+#include <hyprland/src/config/ConfigManager.hpp>
+#include <hyprland/src/helpers/time/Time.hpp>
 #include <hyprland/src/managers/input/trackpad/GestureTypes.hpp>
 #include <hyprland/src/managers/input/trackpad/TrackpadGestures.hpp>
 #include <hyprland/src/event/EventBus.hpp>
@@ -23,7 +25,6 @@ using namespace Hyprutils::String;
 inline CFunctionHook* g_pRenderWorkspaceHook = nullptr;
 inline CFunctionHook* g_pAddDamageHookA      = nullptr;
 inline CFunctionHook* g_pAddDamageHookB      = nullptr;
-typedef void (*origRenderWorkspace)(void*, PHLMONITOR, PHLWORKSPACE, timespec*, const CBox&);
 typedef void (*origAddDamageA)(void*, const CBox&);
 typedef void (*origAddDamageB)(void*, const pixman_region32_t*);
 
@@ -39,7 +40,9 @@ static bool       renderingOverview = false;
 const std::string KEYWORD_EXPO_GESTURE = "hyprexpo-gesture";
 
 //
-static void hkRenderWorkspace(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, timespec* now, const CBox& geometry) {
+using origRenderWorkspace = void (*)(void*, PHLMONITOR, PHLWORKSPACE, const Time::steady_tp&, const CBox&);
+
+static void hkRenderWorkspace(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now, const CBox& geometry) {
     if (!g_pOverview || renderingOverview || g_pOverview->blockOverviewRendering || g_pOverview->pMonitor != pMonitor)
         ((origRenderWorkspace)(g_pRenderWorkspaceHook->m_original))(thisptr, pMonitor, pWorkspace, now, geometry);
     else
@@ -203,12 +206,16 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     }
 
     auto FNS = HyprlandAPI::findFunctionsByName(PHANDLE, "renderWorkspace");
-    if (FNS.empty()) {
-        failNotif("no fns for hook renderWorkspace");
-        throw std::runtime_error("[he] No fns for hook renderWorkspace");
+    const auto IT = std::ranges::find_if(FNS, [](const auto& fn) {
+        return fn.demangled.starts_with("Render::IHyprRenderer::renderWorkspace(");
+    });
+
+    if (IT == FNS.end()) {
+        failNotif("no exact fn for hook renderWorkspace");
+        throw std::runtime_error("[he] No exact fn for hook renderWorkspace");
     }
 
-    g_pRenderWorkspaceHook = HyprlandAPI::createFunctionHook(PHANDLE, FNS[0].address, (void*)hkRenderWorkspace);
+    g_pRenderWorkspaceHook = HyprlandAPI::createFunctionHook(PHANDLE, IT->address, (void*)hkRenderWorkspace);
 
     FNS = HyprlandAPI::findFunctionsByName(PHANDLE, "addDamageEPK15pixman_region32");
     if (FNS.empty()) {
@@ -263,5 +270,5 @@ APICALL EXPORT void PLUGIN_EXIT() {
 
     g_unloading = true;
 
-    g_pConfigManager->reload(); // we need to reload now to clear all the gestures
+    Config::mgr()->reload(); // we need to reload now to clear all the gestures
 }
