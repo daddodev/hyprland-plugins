@@ -484,7 +484,27 @@ void CHyprBar::renderBarButtons(const Vector2D& bufferSize, const float scale) {
         }
 
         cairo_set_source_rgba(CAIRO, color.r, color.g, color.b, color.a);
-        cairo_arc(CAIRO, pos.x, pos.y, scaledRadius, 0, 2 * M_PI);
+
+        const float x = pos.x - scaledButtonSize / 2.0;
+        const float y = pos.y - scaledButtonSize / 2.0;
+        const float r = scaledRadius;
+
+        cairo_new_path(CAIRO);
+        if (r <= 0) {
+            cairo_rectangle(CAIRO, x, y, scaledButtonSize, scaledButtonSize);
+        } else {
+            const float clampedR = std::min(r, scaledButtonSize / 2.0f);
+            cairo_move_to(CAIRO, x + clampedR, y);
+            cairo_line_to(CAIRO, x + scaledButtonSize - clampedR, y);
+            cairo_arc(CAIRO, x + scaledButtonSize - clampedR, y + clampedR, clampedR, -M_PI_2, 0);
+            cairo_line_to(CAIRO, x + scaledButtonSize, y + scaledButtonSize - clampedR);
+            cairo_arc(CAIRO, x + scaledButtonSize - clampedR, y + scaledButtonSize - clampedR, clampedR, 0, M_PI_2);
+            cairo_line_to(CAIRO, x + clampedR, y + scaledButtonSize);
+            cairo_arc(CAIRO, x + clampedR, y + scaledButtonSize - clampedR, clampedR, M_PI_2, M_PI);
+            cairo_line_to(CAIRO, x, y + clampedR);
+            cairo_arc(CAIRO, x + clampedR, y + clampedR, clampedR, M_PI, 1.5 * M_PI);
+            cairo_close_path(CAIRO);
+        }
         cairo_fill(CAIRO);
 
         offset += scaledButtonsPad + scaledButtonSize;
