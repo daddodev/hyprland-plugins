@@ -472,6 +472,7 @@ void CHyprBar::renderBarButtons(const Vector2D& bufferSize, const float scale) {
         auto&      button            = g_pGlobalState->buttons[i];
         const auto  scaledButtonSize = button.size * scale;
         const auto  scaledButtonsPad = **PBARBUTTONPADDING * scale;
+        const auto  scaledRadius   = button.radius < 0 ? scaledButtonSize / 2 : button.radius * scale;
 
         const auto  pos   = Vector2D{BUTTONSRIGHT ? bufferSize.x - offset - scaledButtonSize / 2.0 : offset + scaledButtonSize / 2.0, bufferSize.y / 2.0}.floor();
         auto        color = button.bgcol;
@@ -483,7 +484,7 @@ void CHyprBar::renderBarButtons(const Vector2D& bufferSize, const float scale) {
         }
 
         cairo_set_source_rgba(CAIRO, color.r, color.g, color.b, color.a);
-        cairo_arc(CAIRO, pos.x, pos.y, scaledButtonSize / 2, 0, 2 * M_PI);
+        cairo_arc(CAIRO, pos.x, pos.y, scaledRadius, 0, 2 * M_PI);
         cairo_fill(CAIRO);
 
         offset += scaledButtonsPad + scaledButtonSize;

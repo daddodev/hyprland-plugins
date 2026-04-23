@@ -11,6 +11,7 @@ struct SHyprButton {
     CHyprColor          fgcol   = CHyprColor(0, 0, 0, 0);
     CHyprColor          bgcol   = CHyprColor(0, 0, 0, 0);
     float               size    = 10;
+    float               radius  = -1;
     std::string         icon    = "";
     SP<Render::ITexture> iconTex;
 };
